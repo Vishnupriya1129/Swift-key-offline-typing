@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwiftType - Professional Typing Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;600;800&family=Great+Vibes&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+
+        .mono-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; 
+        }
+
+        /* Character States */
+        .char {
+            color: #64748b; /* default gray */
+            position: relative;
+            transition: all 0.1s ease;
+            border-radius: 2px;
+            padding: 0 1px; /* slight spacing */
+        }
+        .char.correct {
+            color: #d1d5db; /* bright white/gray */
+        }
+        .char.incorrect {
+            color: #f87171; /* red */
+            background-color: rgba(248, 113, 113, 0.2);
+            text-decoration: underline;
+            text-decoration-color: #f87171;
+        }
+        
+        /* Active Character Highlight - High Contrast Yellow */
+        .char.active {
+            background-color: #fbbf24; /* Amber-400 */
+            color: #0f172a; /* Dark text for contrast */
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); /* Glow */
+            font-weight: bold;
+            transform: scale(1.1);
+            z-index: 10;
+            border-radius: 4px;
+        }
+        /* Cursor line */
+        .char.active::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: -4px;
+            width: 100%;
+            height: 3px;
+            background-color: #fbbf24;
+            border-radius: 2px;
+        }
+
+        .input-field {
+            z-index: -999;
+            opacity: 0;
+            position: absolute;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        #certificate-preview {
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 selection:bg-sky-500 selection:text-white">
+
+    <!-- Wrapper -->
+    <div class="w-full max-w-5xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col xl:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-keyboard text-3xl text-sky-400"></i>
+                <h1 class="text-3xl font-bold tracking-tight text-white">Swift<span class="text-sky-400">Type</span></h1>
+            </div>
+            
+            <!-- Time Selectors -->
+            <div class="flex flex-wrap gap-2 text-sm font-medium bg-slate-800 p-2 rounded-xl justify-center shadow-lg border border-slate-700">
+                <button onclick="setTime(30)" class="time-btn px-3 py-1.5 rounded hover:bg-slate-700 transition-colors text-slate-400" data-time="30">30s</button>
+                <button onclick="setTime(60)" class="time-btn px-3 py-1.5 rounded hover:bg-slate-700 transition-colors text-slate-400" data-time="60">1m</button>
+                <button onclick="setTime(120)" class="time-btn px-3 py-1.5 rounded hover:bg-slate-700 transition-colors text-slate-400" data-time="120">2m</button>
+                <button onclick="setTime(300)" class="time-btn px-3 py-1.5 rounded hover:bg-slate-700 transition-colors text-slate-400" data-time="300">5m</button>
+                <button onclick="setTime(600)" class="time-btn px-3 py-1.5 rounded hover:bg-slate-700 transition-colors text-slate-400" data-time="600">10m</button>
+                <button onclick="setTime(1800)" class="time-btn px-3 py-1.5 rounded hover:bg-slate-700 transition-colors text-slate-400" data-time="1800">30m</button>
+                <button onclick="setTime(3600)" class="time-btn px-3 py-1.5 rounded hover:bg-slate-700 transition-colors text-amber-500 font-bold border border-amber-500/30" data-time="3600">
+                    <i class="fa-solid fa-trophy mr-1"></i>1h
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Game Area -->
+        <main class="glass-panel rounded-2xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
+            
+            <!-- Focus Overlay -->
+            <div id="focus-overlay" class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center cursor-pointer transition-opacity duration-200 hidden">
+                <div class="text-center">
+                    <i class="fa-solid fa-arrow-pointer text-4xl text-sky-400 mb-4 animate-bounce"></i>
+                    <p class="text-xl font-medium text-white">Click to Focus</p>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="grid grid-cols-3 gap-4 mb-8">
+                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <p class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Time</p>
+                    <p class="text-3xl font-bold text-white mono-font" id="timer-display">60s</p>
+                </div>
+                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <p class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Mistakes</p>
+                    <p class="text-3xl font-bold text-rose-400 mono-font" id="mistakes">0</p>
+                </div>
+                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <p class="text-slate-400 text-xs uppercase tracking-wider font-semibold">WPM</p>
+                    <p class="text-3xl font-bold text-sky-400 mono-font" id="wpm">0</p>
+                </div>
+            </div>
+
+            <!-- Typing Input (Hidden) -->
+            <input type="text" class="input-field" id="input-field">
+
+            <!-- Text Display -->
+            <div class="typing-text bg-slate-900/50 p-6 rounded-xl border border-slate-800 h-[180px] overflow-hidden relative cursor-text" id="text-display-container">
+                <p id="typing-text" class="text-xl md:text-2xl leading-relaxed mono-font select-none text-justify break-words"></p>
+            </div>
+
+            <!-- Controls: Stop & Restart -->
+            <div class="mt-8 flex justify-center gap-4">
+                <!-- IMPORTANT: onmousedown="event.preventDefault()" prevents the input blur event -->
+                <button onmousedown="event.preventDefault(); stopGame()" id="stop-btn" class="hidden group relative inline-flex items-center justify-center px-8 py-3 font-bold text-white transition-all duration-200 bg-rose-500 font-lg rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 hover:bg-rose-600 hover:shadow-lg hover:scale-105 active:scale-95">
+                    <i class="fa-solid fa-stop mr-2"></i>
+                    Stop Test
+                </button>
+                <button onclick="resetGame()" class="group relative inline-flex items-center justify-center px-8 py-3 font-bold text-white transition-all duration-200 bg-sky-500 font-lg rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 hover:bg-sky-600 hover:shadow-lg hover:scale-105 active:scale-95">
+                    <i class="fa-solid fa-rotate-right mr-2 transition-transform group-hover:rotate-180"></i>
+                    Restart Test
+                </button>
+            </div>
+        </main>
+
+        <footer class="text-center text-slate-500 text-sm">
+            <p>Press <kbd class="bg-slate-800 px-2 py-1 rounded text-slate-300 font-mono text-xs">Tab</kbd> + <kbd class="bg-slate-800 px-2 py-1 rounded text-slate-300 font-mono text-xs">Enter</kbd> to restart quickly</p>
+        </footer>
+    </div>
+
+    <!-- Results Modal -->
+    <div id="results-modal" class="fixed inset-0 z-[100] flex items-center justify-center px-4 opacity-0 pointer-events-none transition-opacity duration-300 overflow-y-auto py-10">
+        <div class="absolute inset-0 bg-slate-950/90 backdrop-blur-md"></div>
+        
+        <div class="bg-slate-900 border border-slate-700 p-8 rounded-2xl shadow-2xl relative max-w-lg w-full transform scale-95 transition-transform duration-300 flex flex-col max-h-full" id="results-content">
+            
+            <!-- Standard Results View -->
+            <div id="standard-results">
+                <h2 class="text-3xl font-bold text-white mb-2 text-center" id="result-title">Time's Up!</h2>
+                <div class="flex justify-center mb-6">
+                    <div class="w-24 h-1 bg-gradient-to-r from-transparent via-sky-500 to-transparent"></div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="text-center p-4 bg-slate-800 rounded-xl">
+                        <div class="text-4xl font-bold text-sky-400 mono-font mb-1" id="final-wpm">0</div>
+                        <div class="text-xs text-slate-400 uppercase tracking-wide">WPM</div>
+                    </div>
+                    <div class="text-center p-4 bg-slate-800 rounded-xl">
+                        <div class="text-4xl font-bold text-emerald-400 mono-font mb-1" id="final-acc">0%</div>
+                        <div class="text-xs text-slate-400 uppercase tracking-wide">Accuracy</div>
+                    </div>
+                    <div class="text-center p-4 bg-slate-800 rounded-xl">
+                        <div class="text-xl font-bold text-white mono-font mb-1" id="final-cpm">0</div>
+                        <div class="text-xs text-slate-400 uppercase tracking-wide">Characters</div>
+                    </div>
+                    <div class="text-center p-4 bg-slate-800 rounded-xl">
+                        <div class="text-xl font-bold text-rose-400 mono-font mb-1" id="final-errors">0</div>
+                        <div class="text-xs text-slate-400 uppercase tracking-wide">Errors</div>
+                    </div>
+                </div>
+
+                <!-- Mistakes Panel -->
+                <div id="wrong-words-panel" class="hidden mb-6 bg-slate-800/50 p-4 rounded-xl border border-slate-700 text-left">
+                    <h3 class="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-3 flex items-center">
+                        <i class="fa-solid fa-triangle-exclamation mr-2 text-rose-400"></i>Mistakes to Review
+                    </h3>
+                    <div id="wrong-words-list" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-2">
+                        <!-- Words go here -->
+                    </div>
+                </div>
+
+                <!-- Certificate Section (Hidden by default) -->
+                <div id="certificate-section" class="hidden mb-6 bg-amber-900/20 border border-amber-500/30 p-4 rounded-xl text-center">
+                    <i class="fa-solid fa-crown text-3xl text-amber-500 mb-2"></i>
+                    <h3 class="text-amber-400 font-bold text-lg mb-1">1 Hour Challenge Completed!</h3>
+                    <p class="text-slate-300 text-sm mb-4">You've earned a certificate of completion.</p>
+                    
+                    <div class="flex flex-col gap-3">
+                        <input type="text" id="cert-name" placeholder="Enter Your Name" class="bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-sky-500 text-center">
+                        <button onclick="generateAndDownloadCert()" class="bg-gradient-to-r from-amber-500 to-yellow-600 text-white font-bold py-2 rounded-lg shadow-lg hover:shadow-amber-500/20 transition-all active:scale-95">
+                            <i class="fa-solid fa-file-certificate mr-2"></i>Generate Certificate
+                        </button>
+                    </div>
+                </div>
+
+                <button onclick="resetGame()" class="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-bold transition-all hover:shadow-lg active:scale-95 border border-slate-600">
+                    Close & Try Again
+                </button>
+            </div>
+
+            <!-- Certificate Preview View (Hidden by default) -->
+            <div id="cert-preview-container" class="hidden flex-col items-center">
+                <h2 class="text-2xl font-bold text-white mb-4">Your Certificate</h2>
+                <img id="certificate-preview" class="w-full h-auto border-4 border-slate-800 rounded-lg mb-6 shadow-2xl" alt="Certificate Preview">
+                
+                <div class="flex gap-3 w-full">
+                    <a id="download-link" download="SwiftType-Certificate.png" class="flex-1 text-center bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold transition-all">
+                        <i class="fa-solid fa-download mr-2"></i>Download
+                    </a>
+                    <button onclick="resetGame()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold transition-all">
+                        Done
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const paragraphs = [
+            "The quick brown fox jumps over the lazy dog. It is a classic pangram containing every letter of the alphabet.",
+            "Technology is best when it brings people together. It is the art of arranging text to make written language legible.",
+            "To be or not to be, that is the question. Whether 'tis nobler in the mind to suffer the slings and arrows of outrageous fortune.",
+            "In a hole in the ground there lived a hobbit. Not a nasty, dirty, wet hole, filled with the ends of worms and an oozy smell.",
+            "Success is not final, failure is not fatal: it is the courage to continue that counts in the long run.",
+            "Code is like humor. When you have to explain it, it's bad. Simplicity is the soul of efficiency.",
+            "The only way to do great work is to love what you do. If you haven't found it yet, keep looking. Don't settle.",
+            "Life is what happens when you're busy making other plans. The future belongs to those who believe in the beauty of their dreams.",
+            "Hardware is the part of a computer that you can kick; software is the part that you can only curse.",
+            "Space, the final frontier. These are the voyages of the starship Enterprise. Its five-year mission: to explore strange new worlds.",
+            "A user interface is like a joke. If you have to explain it, it's not that good. Good design is obvious.",
+            "Do not go gentle into that good night. Rage, rage against the dying of the light. Old age should burn and rave at close of day.",
+            "The sky above the port was the color of television, tuned to a dead channel. It was a bright cold day in April.",
+            "Typing is a skill that can be improved with practice. Focus on accuracy first, and speed will follow naturally over time."
+        ];
+
+        const typingText = document.querySelector("#typing-text");
+        const inpField = document.querySelector("#input-field");
+        const mistakeTag = document.querySelector("#mistakes");
+        const timeTag = document.querySelector("#timer-display");
+        const wpmTag = document.querySelector("#wpm");
+        const focusOverlay = document.getElementById('focus-overlay');
+        const textContainer = document.getElementById('text-display-container');
+        const timeBtns = document.querySelectorAll('.time-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const resultTitle = document.getElementById('result-title');
+        
+        // Modal elements
+        const resultsModal = document.getElementById('results-modal');
+        const resultsContent = document.getElementById('results-content');
+        const standardResults = document.getElementById('standard-results');
+        const certPreviewContainer = document.getElementById('cert-preview-container');
+        const certificateSection = document.getElementById('certificate-section');
+        const wrongWordsPanel = document.getElementById('wrong-words-panel');
+        const wrongWordsList = document.getElementById('wrong-words-list');
+        
+        const finalWpm = document.getElementById('final-wpm');
+        const finalAcc = document.getElementById('final-acc');
+        const finalCpm = document.getElementById('final-cpm');
+        const finalErrors = document.getElementById('final-errors');
+
+        // Game State
+        let timer;
+        let maxTime = 60; // default 1 min
+        let timeLeft = maxTime;
+        let isGameRunning = false;
+        
+        // Current paragraph state
+        let charIndex = 0;
+        let mistakes = 0;
+        let isTyping = false;
+
+        // Global stats
+        let globalCharsTyped = 0;
+        let globalMistakes = 0;
+        
+        // Wrong Words Tracking
+        let wrongWords = new Set();
+
+        function formatTime(seconds) {
+            if(seconds >= 60) {
+                const m = Math.floor(seconds / 60);
+                const s = seconds % 60;
+                return `${m}m ${s}s`;
+            }
+            return `${seconds}s`;
+        }
+
+        function setTime(seconds) {
+            maxTime = seconds;
+            
+            // Update UI buttons
+            timeBtns.forEach(btn => {
+                if(parseInt(btn.dataset.time) === seconds) {
+                    btn.classList.remove('text-slate-400');
+                    btn.classList.add('bg-slate-600', 'text-white', 'shadow');
+                    if(seconds === 3600) {
+                         btn.classList.add('bg-amber-900/50', 'border-amber-500', 'text-amber-400');
+                         btn.classList.remove('bg-slate-600');
+                    }
+                } else {
+                    btn.classList.remove('bg-slate-600', 'text-white', 'shadow', 'bg-amber-900/50', 'border-amber-500', 'text-amber-400');
+                    btn.classList.add('text-slate-400');
+                }
+            });
+            
+            resetGame();
+        }
+
+        function loadParagraph() {
+            const randIndex = Math.floor(Math.random() * paragraphs.length);
+            typingText.innerHTML = "";
+            let html = "";
+            paragraphs[randIndex].split("").forEach(char => {
+                html += `<span class="char">${char}</span>`;
+            });
+            typingText.innerHTML = html;
+            
+            typingText.querySelectorAll("span")[0].classList.add("active");
+            
+            charIndex = 0;
+            mistakes = 0;
+            inpField.value = "";
+        }
+
+        function scanMistakes() {
+            const chars = typingText.querySelectorAll("span");
+            let currentWord = "";
+            let isWrong = false;
+            
+            // Iterate through all characters to reconstruct words and find errors
+            chars.forEach((char) => {
+                if (char.innerText === " ") {
+                    if (isWrong && currentWord.trim().length > 0) {
+                        wrongWords.add(currentWord);
+                    }
+                    currentWord = "";
+                    isWrong = false;
+                } else {
+                    currentWord += char.innerText;
+                    if (char.classList.contains("incorrect")) {
+                        isWrong = true;
+                    }
+                }
+            });
+            
+            // Check the last word if it didn't end with a space
+            if (isWrong && currentWord.trim().length > 0) {
+                wrongWords.add(currentWord);
+            }
+        }
+
+        function stopGame() {
+            clearInterval(timer);
+            isTyping = false;
+            isGameRunning = false;
+            
+            // Force hide the overlay (in case blur fired)
+            focusOverlay.classList.add("hidden");
+            
+            resultTitle.innerText = "Test Stopped";
+            showResults();
+        }
+
+        function initTyping() {
+            let characters = typingText.querySelectorAll("span");
+            let typedChar = inpField.value.split("")[charIndex];
+            
+            if (timeLeft > 0) {
+                if(!isTyping) {
+                    timer = setInterval(initTimer, 1000);
+                    isTyping = true;
+                    isGameRunning = true;
+                    stopBtn.classList.remove('hidden'); // Show stop button when started
+                }
+                
+                // Infinite Scroll: Check if paragraph finished
+                if (typedChar == null && charIndex === 0 && characters.length > 0 && isTyping) {
+                    // Backspace at very start
+                } 
+                else if (charIndex >= characters.length - 1) {
+                    scanMistakes();
+                    globalCharsTyped += charIndex;
+                    globalMistakes += mistakes;
+                    loadParagraph();
+                    return; 
+                }
+
+                if(typedChar == null) {
+                    if(charIndex > 0) {
+                        charIndex--;
+                        if(characters[charIndex].classList.contains("incorrect")) {
+                            mistakes--;
+                        }
+                        characters[charIndex].classList.remove("correct", "incorrect");
+                    }
+                } else {
+                    if(characters[charIndex].innerText === typedChar) {
+                        characters[charIndex].classList.add("correct");
+                    } else {
+                        mistakes++;
+                        characters[charIndex].classList.add("incorrect");
+                    }
+                    charIndex++;
+                }
+                
+                characters.forEach(span => span.classList.remove("active"));
+                if (characters[charIndex]) characters[charIndex].classList.add("active");
+
+                const totalC = globalCharsTyped + charIndex;
+                const totalM = globalMistakes + mistakes;
+
+                // Time spent so far (avoid division by zero)
+                let timeSpent = maxTime - timeLeft;
+                if(timeSpent < 1) timeSpent = 1;
+
+                let wpm = Math.round(((totalC - totalM)  / 5) / timeSpent * 60);
+                wpm = wpm < 0 || !wpm || wpm === Infinity ? 0 : wpm;
+                
+                wpmTag.innerText = wpm;
+                mistakeTag.innerText = totalM;
+            } else {
+                clearInterval(timer);
+                inpField.value = "";
+            }
+        }
+
+        function initTimer() {
+            if(timeLeft > 0) {
+                timeLeft--;
+                timeTag.innerText = formatTime(timeLeft);
+                
+                const totalC = globalCharsTyped + charIndex;
+                const totalM = globalMistakes + mistakes;
+                let timeSpent = maxTime - timeLeft;
+                if(timeSpent < 1) timeSpent = 1;
+
+                let wpm = Math.round(((totalC - totalM)  / 5) / timeSpent * 60);
+                wpm = wpm < 0 || !wpm || wpm === Infinity ? 0 : wpm;
+                wpmTag.innerText = wpm;
+            } else {
+                clearInterval(timer);
+                stopGame(); // Use stopGame logic to end naturally
+            }
+        }
+
+        function showResults() {
+            // Capture any remaining mistakes from the current paragraph
+            scanMistakes();
+
+            // Calculate final stats based on actual time spent
+            const totalC = globalCharsTyped + charIndex;
+            const totalM = globalMistakes + mistakes;
+            
+            let timeSpent = maxTime - timeLeft;
+            if (timeSpent === 0) timeSpent = 1; // prevent div/0 for immediate stop
+
+            let wpm = Math.round(((totalC - totalM) / 5) / timeSpent * 60);
+            wpm = wpm < 0 ? 0 : wpm;
+            
+            const accuracy = totalC > 0 ? Math.floor(((totalC - totalM) / totalC) * 100) : 0;
+            
+            finalWpm.innerText = wpm;
+            finalAcc.innerText = `${accuracy}%`;
+            finalCpm.innerText = totalC;
+            finalErrors.innerText = totalM;
+
+            // Render Wrong Words
+            wrongWordsList.innerHTML = '';
+            if (wrongWords.size > 0) {
+                wrongWordsPanel.classList.remove('hidden');
+                wrongWords.forEach(word => {
+                    const tag = document.createElement('span');
+                    tag.className = 'px-2 py-1 bg-rose-500/20 text-rose-300 rounded text-sm font-mono border border-rose-500/30';
+                    tag.textContent = word; 
+                    wrongWordsList.appendChild(tag);
+                });
+            } else {
+                wrongWordsPanel.classList.add('hidden');
+            }
+
+            // Check for 1 Hour Certificate Condition (Must finish time)
+            if (maxTime === 3600 && timeLeft === 0) {
+                certificateSection.classList.remove('hidden');
+            } else {
+                certificateSection.classList.add('hidden');
+            }
+            
+            if(resultTitle.innerText !== "Test Stopped") {
+                 resultTitle.innerText = "Time's Up!";
+            }
+
+            // Show modal
+            resultsModal.classList.remove('pointer-events-none', 'opacity-0');
+            resultsContent.classList.remove('scale-95');
+            resultsContent.classList.add('scale-100');
+        }
+
+        function resetGame() {
+            loadParagraph();
+            clearInterval(timer);
+            timeLeft = maxTime;
+            
+            // Reset Globals
+            globalCharsTyped = 0;
+            globalMistakes = 0;
+            wrongWords.clear();
+            
+            charIndex = mistakes = 0;
+            isTyping = false;
+            isGameRunning = false;
+            stopBtn.classList.add('hidden'); // Hide stop button on reset
+            
+            inpField.value = "";
+            timeTag.innerText = formatTime(timeLeft);
+            wpmTag.innerText = 0;
+            mistakeTag.innerText = 0;
+            
+            // Hide modal elements
+            resultsModal.classList.add('pointer-events-none', 'opacity-0');
+            resultsContent.classList.add('scale-95');
+            resultsContent.classList.remove('scale-100');
+            
+            // Reset views inside modal
+            standardResults.classList.remove('hidden');
+            certPreviewContainer.classList.add('hidden');
+            wrongWordsPanel.classList.add('hidden'); 
+            document.getElementById('cert-name').value = '';
+            resultTitle.innerText = "Time's Up!";
+            
+            inpField.focus();
+        }
+
+        // Certificate Generation Logic
+        function generateAndDownloadCert() {
+            const name = document.getElementById('cert-name').value;
+            if(!name) {
+                alert("Please enter your name!");
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 1200;
+            canvas.height = 800;
+            const ctx = canvas.getContext('2d');
+
+            // Generate Unique ID
+            const uniqueId = 'ST-' + Math.random().toString(36).substr(2, 6).toUpperCase() + '-' + Date.now().toString().slice(-4);
+
+            // Draw Background
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, 1200, 800);
+
+            // Watermark (background pattern)
+            ctx.font = 'bold 150px "Inter", sans-serif';
+            ctx.fillStyle = 'rgba(203, 213, 225, 0.1)';
+            ctx.textAlign = 'center';
+            ctx.save();
+            ctx.translate(600, 400);
+            ctx.rotate(-Math.PI / 6);
+            ctx.fillText('SWIFT TYPE', 0, 0);
+            ctx.restore();
+
+            // Draw Border (Double border for realistic look)
+            ctx.lineWidth = 20;
+            ctx.strokeStyle = '#d97706'; // amber-600
+            ctx.strokeRect(40, 40, 1120, 720);
+            
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#0f172a'; // slate-900
+            ctx.strokeRect(70, 70, 1060, 660);
+            
+            // Corner Decorations
+            function drawCorner(x, y, rotation) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(rotation);
+                ctx.fillStyle = '#d97706';
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(60, 0);
+                ctx.lineTo(0, 60);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            drawCorner(40, 40, 0);
+            drawCorner(1160, 40, Math.PI / 2);
+            drawCorner(1160, 760, Math.PI);
+            drawCorner(40, 760, -Math.PI / 2);
+
+            // Header
+            ctx.font = 'bold 70px "Inter", sans-serif';
+            ctx.fillStyle = '#0f172a';
+            ctx.textAlign = 'center';
+            ctx.fillText('CERTIFICATE OF MASTERY', 600, 180);
+
+            ctx.beginPath();
+            ctx.moveTo(350, 210);
+            ctx.lineTo(850, 210);
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Subheader
+            ctx.font = '30px "Inter", sans-serif';
+            ctx.fillStyle = '#64748b';
+            ctx.fillText('This certifies that', 600, 280);
+
+            // Name
+            ctx.font = '100px "Great Vibes", cursive';
+            ctx.fillStyle = '#d97706'; // gold/amber
+            ctx.fillText(name, 600, 380);
+
+            // Achievement Text
+            ctx.font = '24px "Inter", sans-serif';
+            ctx.fillStyle = '#334155';
+            ctx.fillText('Has successfully completed the 1 Hour Endurance Typing Challenge', 600, 460);
+            ctx.fillText('demonstrating outstanding typing proficiency and focus.', 600, 500);
+
+            // Stats Box
+            ctx.fillStyle = '#f1f5f9';
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1;
+            ctx.fillRect(350, 540, 500, 100);
+            ctx.strokeRect(350, 540, 500, 100);
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#0f172a';
+            
+            // WPM
+            ctx.font = 'bold 40px "JetBrains Mono", monospace';
+            ctx.fillText(`${finalWpm.innerText} WPM`, 475, 595);
+            ctx.font = '16px "Inter", sans-serif';
+            ctx.fillStyle = '#64748b';
+            ctx.fillText('SPEED', 475, 625);
+
+            // Divider
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(600, 555, 2, 70);
+
+            // Accuracy
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 40px "JetBrains Mono", monospace';
+            ctx.fillText(`${finalAcc.innerText}`, 725, 595);
+            ctx.font = '16px "Inter", sans-serif';
+            ctx.fillStyle = '#64748b';
+            ctx.fillText('ACCURACY', 725, 625);
+
+            // Footer Info
+            const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            ctx.font = '18px "Inter", sans-serif';
+            ctx.fillStyle = '#64748b';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Date: ${date}`, 100, 720);
+            
+            ctx.textAlign = 'center';
+            ctx.fillText(`Certificate ID: ${uniqueId}`, 600, 720);
+
+            // Signature
+            ctx.textAlign = 'right';
+            ctx.font = 'italic 24px "Inter", serif';
+            ctx.fillText('SwiftType Certification Board', 1100, 710);
+            ctx.beginPath();
+            ctx.moveTo(900, 680);
+            ctx.lineTo(1100, 680);
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            // Switch View to Preview
+            const dataUrl = canvas.toDataURL('image/png');
+            document.getElementById('certificate-preview').src = dataUrl;
+            document.getElementById('download-link').href = dataUrl;
+            document.getElementById('download-link').download = `SwiftType-Certificate-${uniqueId}.png`;
+            
+            standardResults.classList.add('hidden');
+            certPreviewContainer.classList.remove('hidden');
+            certPreviewContainer.classList.add('flex');
+        }
+
+        // Focus Handling
+        inpField.addEventListener("focus", () => {
+            focusOverlay.classList.add("hidden");
+        });
+        
+        inpField.addEventListener("blur", () => {
+            // Only show focus overlay if game is theoretically running AND results aren't shown
+            // If we stopped the game, isGameRunning becomes false
+            if (isGameRunning && resultsModal.classList.contains('pointer-events-none')) {
+                focusOverlay.classList.remove("hidden");
+            }
+        });
+
+        focusOverlay.addEventListener("click", () => {
+            inpField.focus();
+        });
+
+        inpField.addEventListener("input", initTyping);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault();
+                resetGame();
+            }
+        });
+
+        setTime(60); 
+    </script>
+</body>
+</html>
